@@ -48,10 +48,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         email,
         amount,
-        // Paystack settles in the currency tied to your account (commonly
-        // NGN for Nigerian accounts). Change this if your account is set
-        // up for a different settlement currency.
-        currency: "USD",
+        currency: "NGN",
         callback_url: `${origin}/checkout/callback`,
         metadata: { planId, planName },
       }),
