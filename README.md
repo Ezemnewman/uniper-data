@@ -50,21 +50,46 @@ Pricing cards link to `/checkout?plan=<planId>` (see `PricingCard.tsx`). The che
 looks up the plan **server-side** from `lib/plans.ts` by id — it does not trust a `price`
 query param — so the amount charged can't be tampered with via the URL.
 
-## Wiring up real payments
+## Payments
 
-The payment tab switcher (`PaymentMethodTabs.tsx`) and `CheckoutForm.tsx` currently simulate a
-network call on submit. To connect a real gateway:
+**Paystack is live and wired up.** Selecting the Paystack tab and clicking Pay Now:
 
-1. **Stripe:** create a server action or route handler (`app/api/checkout/route.ts`) that creates
-   a `PaymentIntent` using `STRIPE_SECRET_KEY`, and confirm it client-side with
-   `@stripe/stripe-js` + `@stripe/react-stripe-js` using `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
-2. **Paystack:** create a route handler that initializes a transaction with
-   `PAYSTACK_SECRET_KEY`, then redirect the browser to the returned `authorization_url`.
-3. Replace the `await new Promise(...)` simulation in `CheckoutForm.tsx`'s `onSubmit` with a
-   `fetch()` call to your route handler, and call `onSuccess()` once the provider confirms
-   payment (e.g. from a webhook-backed status check or the redirect callback).
+1. Calls `app/api/paystack/init/route.ts` (server-side) which initializes a transaction with
+   your `PAYSTACK_SECRET_KEY`.
+2. Redirects the full page to Paystack's hosted checkout (`authorization_url`).
+3. After payment, Paystack sends the browser back to `/checkout/callback`, which verifies the
+   transaction server-side (`transaction/verify`) and shows a success or failure screen.
 
-Copy `.env.example` to `.env.local` and fill in your sandbox keys before wiring this up.
+To enable it:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your **test** secret key to `.env.local`:
+
+```
+PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxx
+```
+
+Get a free test key from your Paystack dashboard under **Settings → API Keys & Webhooks** — no
+business verification needed for test mode. Test payments use Paystack's published test cards.
+
+**Currency note:** the API route currently hardcodes `currency: "NGN"` in
+`app/api/paystack/init/route.ts`, since Paystack settles in the currency tied to your account
+(commonly NGN for Nigerian accounts). The site displays prices in USD — if your Paystack account
+isn't set up for USD, either change the displayed prices to NGN or convert the amount before
+sending it to Paystack. Check what currencies your account supports before going live.
+
+**Card and Bank Transfer are still simulated** (a `setTimeout` in `CheckoutForm.tsx`'s
+`onSubmit`) — they don't move real money. To wire up Stripe for the Card tab the same way:
+
+1. Create `app/api/stripe/init/route.ts` that creates a `PaymentIntent` using
+   `STRIPE_SECRET_KEY`.
+2. In `CheckoutForm.tsx`, add a `paymentMethod === "card"` branch alongside the existing
+   `"paystack"` branch that posts to that route and confirms the intent client-side with
+   `@stripe/stripe-js` + `@stripe/react-stripe-js`, using `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+3. Call `onSuccess()` once Stripe confirms payment.
 
 ## Accessibility & responsiveness notes
 

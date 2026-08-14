@@ -11,7 +11,8 @@ import { FormError } from "@/components/ui/form-error";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PaymentMethodTabs } from "@/components/checkout/PaymentMethodTabs";
 import { billingSchema, cardSchema, type BillingSchema, type CardSchema } from "@/lib/validations/checkout";
-import type { PaymentMethod } from "@/types";
+import { TAX_RATE } from "@/lib/plans";
+import type { PaymentMethod, Plan } from "@/types";
 
 const COUNTRIES = ["United States", "United Kingdom", "Canada", "Nigeria", "Germany"];
 
@@ -19,12 +20,14 @@ const formSchema = billingSchema.merge(cardSchema.partial());
 type FormValues = BillingSchema & Partial<CardSchema>;
 
 interface CheckoutFormProps {
+  plan: Plan;
   onSubmittingChange: (isSubmitting: boolean) => void;
   onSuccess: () => void;
 }
 
-export function CheckoutForm({ onSubmittingChange, onSuccess }: CheckoutFormProps) {
+export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const {
     register,
@@ -41,8 +44,44 @@ export function CheckoutForm({ onSubmittingChange, onSuccess }: CheckoutFormProp
   }, [isSubmitting, onSubmittingChange]);
 
   async function onSubmit(values: FormValues) {
-    // Re-validate card fields client-side when paying by card, since the
-    // shared schema treats them as optional to support other payment rails.
+    setPaymentError(null);
+
+    if (paymentMethod === "paystack") {
+      const total = plan.price * (1 + TAX_RATE);
+      try {
+        const response = await fetch("/api/paystack/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: values.email,
+            // Paystack expects the amount in the smallest currency unit
+            // (e.g. kobo for NGN), so multiply by 100 and round to be safe.
+            amount: Math.round(total * 100),
+            planId: plan.id,
+            planName: plan.name,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.authorization_url) {
+          setPaymentError(data.error ?? "Could not start the Paystack checkout. Please try again.");
+          return;
+        }
+
+        // Full-page redirect to Paystack's hosted checkout — the browser
+        // leaves this app until Paystack sends the user back to
+        // /checkout/callback, which verifies the transaction server-side.
+        window.location.href = data.authorization_url;
+      } catch {
+        setPaymentError("Could not reach the payment server. Please try again.");
+      }
+      return;
+    }
+
+    // Card and bank transfer are not yet wired to a real gateway — see
+    // README.md for how to connect Stripe here the same way Paystack is
+    // connected above.
     if (paymentMethod === "card") {
       const cardResult = cardSchema.safeParse(values);
       if (!cardResult.success) {
@@ -50,7 +89,6 @@ export function CheckoutForm({ onSubmittingChange, onSuccess }: CheckoutFormProp
       }
     }
 
-    // Simulate a call to the payment gateway (Stripe/Paystack sandbox).
     await new Promise((resolve) => setTimeout(resolve, 1400));
     console.log("Checkout submission:", { ...values, paymentMethod });
     onSuccess();
@@ -250,6 +288,12 @@ export function CheckoutForm({ onSubmittingChange, onSuccess }: CheckoutFormProp
           <p className="text-body-sm text-on-surface-variant">
             You&apos;ll be redirected to Paystack&apos;s secure checkout to complete this payment
             after clicking Pay Now.
+          </p>
+        )}
+
+        {paymentError && (
+          <p className="text-body-sm text-error mt-4" role="alert">
+            {paymentError}
           </p>
         )}
 
