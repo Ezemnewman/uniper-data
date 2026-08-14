@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { convertUsdToNgn } from "@/lib/currency";
+
 // Read at request time (not module load time) so a missing key produces a
 // clean 500 response instead of crashing the route during build.
 function getSecretKey() {
@@ -8,7 +10,7 @@ function getSecretKey() {
 
 interface InitRequestBody {
   email?: string;
-  amount?: number; // smallest currency unit (e.g. kobo for NGN)
+  amountUsd?: number; // order total in USD, before currency conversion
   planId?: string;
   planName?: string;
 }
@@ -30,11 +32,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { email, amount, planId, planName } = body;
+  const { email, amountUsd, planId, planName } = body;
 
-  if (!email || typeof amount !== "number" || amount <= 0) {
+  if (!email || typeof amountUsd !== "number" || amountUsd <= 0) {
     return NextResponse.json({ error: "A valid email and amount are required." }, { status: 400 });
   }
+
+  const amountNgn = convertUsdToNgn(amountUsd);
+  // Paystack expects the amount in the smallest currency unit (kobo for NGN).
+  const amountKobo = Math.round(amountNgn * 100);
 
   const origin = request.nextUrl.origin;
 
@@ -47,10 +53,14 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         email,
-        amount,
+        amount: amountKobo,
+        // Paystack settles in the currency tied to your account (commonly
+        // NGN for Nigerian accounts). Change this if your account is set
+        // up for a different settlement currency — and update the
+        // USD_TO_NGN_RATE conversion above accordingly.
         currency: "NGN",
         callback_url: `${origin}/checkout/callback`,
-        metadata: { planId, planName },
+        metadata: { planId, planName, amountUsd },
       }),
     });
 

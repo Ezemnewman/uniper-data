@@ -75,11 +75,13 @@ PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxx
 Get a free test key from your Paystack dashboard under **Settings → API Keys & Webhooks** — no
 business verification needed for test mode. Test payments use Paystack's published test cards.
 
-**Currency note:** the API route currently hardcodes `currency: "NGN"` in
-`app/api/paystack/init/route.ts`, since Paystack settles in the currency tied to your account
-(commonly NGN for Nigerian accounts). The site displays prices in USD — if your Paystack account
-isn't set up for USD, either change the displayed prices to NGN or convert the amount before
-sending it to Paystack. Check what currencies your account supports before going live.
+**Currency conversion:** the site displays prices in USD, but this Paystack account settles in
+NGN, so `app/api/paystack/init/route.ts` converts the USD total to NGN before charging, using
+the shared rate in `lib/currency.ts` (`USD_TO_NGN_RATE`). That rate is a **static, approximate**
+mid-market rate — it will drift as the real exchange rate moves. For anything beyond testing,
+replace it with a live rate pulled from an FX API at request time rather than a hardcoded
+number. The Paystack tab shows the shopper the actual NGN amount before they're redirected, so
+there's no surprise at checkout.
 
 **Card and Bank Transfer are still simulated** (a `setTimeout` in `CheckoutForm.tsx`'s
 `onSubmit`) — they don't move real money. To wire up Stripe for the Card tab the same way:

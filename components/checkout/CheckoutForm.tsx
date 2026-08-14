@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PaymentMethodTabs } from "@/components/checkout/PaymentMethodTabs";
 import { billingSchema, cardSchema, type BillingSchema, type CardSchema } from "@/lib/validations/checkout";
 import { TAX_RATE } from "@/lib/plans";
+import { convertUsdToNgn, formatNgn } from "@/lib/currency";
+import { formatCurrency } from "@/lib/utils";
 import type { PaymentMethod, Plan } from "@/types";
 
 const COUNTRIES = ["United States", "United Kingdom", "Canada", "Nigeria", "Germany"];
@@ -28,6 +30,9 @@ interface CheckoutFormProps {
 export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const total = plan.price * (1 + TAX_RATE);
+  const totalNgn = convertUsdToNgn(total);
 
   const {
     register,
@@ -63,16 +68,15 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
     setPaymentError(null);
 
     if (paymentMethod === "paystack") {
-      const total = plan.price * (1 + TAX_RATE);
       try {
         const response = await fetch("/api/paystack/init", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             email: values.email,
-            // Paystack expects the amount in the smallest currency unit
-            // (e.g. kobo for NGN), so multiply by 100 and round to be safe.
-            amount: Math.round(total * 100),
+            // The server converts this USD total to NGN kobo — see
+            // app/api/paystack/init/route.ts for the exchange rate used.
+            amountUsd: total,
             planId: plan.id,
             planName: plan.name,
           }),
@@ -307,7 +311,9 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
         {paymentMethod === "paystack" && (
           <p className="text-body-sm text-on-surface-variant">
             You&apos;ll be redirected to Paystack&apos;s secure checkout to complete this payment
-            after clicking Pay Now.
+            after clicking Pay Now. Paystack charges in Naira, so you&apos;ll be billed{" "}
+            <span className="font-semibold text-on-surface">{formatNgn(totalNgn)}</span>{" "}
+            (today&apos;s approximate rate for {formatCurrency(total)}).
           </p>
         )}
 
