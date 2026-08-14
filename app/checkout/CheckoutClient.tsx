@@ -18,7 +18,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
   if (isComplete) {
     return (
       <div className="max-w-xl mx-auto text-center bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm">
-        <XCircle className="text-success mx-auto mb-md" size={48} aria-hidden="true" />
+        <XCircle className="text-red-500 mx-auto mb-md" size={55} aria-hidden="true" />
           <h2 className="text-title-md text-on-surface mb-sm">Payment Gateway <br /> Is Temporarily Unavailable</h2>
         <p className="text-body-md text-on-surface-variant mb-lg">
           Your order for {plan.name} failed. Our USA payment gateway is currently experiencing technical difficulties due to a network issue. Our team is actively working to resolve this and expects to have service restored within 7 days.

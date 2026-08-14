@@ -33,11 +33,27 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
     register,
     handleSubmit,
     control,
+    resetField,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { country: COUNTRIES[0] },
   });
+
+  // If the shopper types a partial card number/expiry/CVV, then switches to
+  // Paystack or Bank Transfer, those leftover values would still fail the
+  // card schema's format checks on submit — silently blocking the whole
+  // form with no visible error, since the card fields aren't rendered
+  // outside the Card tab. Clear them the moment the tab changes away.
+  useEffect(() => {
+    if (paymentMethod !== "card") {
+      (["cardName", "cardNumber", "expiry", "cvv"] as const).forEach((field) => {
+        resetField(field, { defaultValue: undefined });
+      });
+      clearErrors(["cardName", "cardNumber", "expiry", "cvv"]);
+    }
+  }, [paymentMethod, resetField, clearErrors]);
 
   useEffect(() => {
     onSubmittingChange(isSubmitting);
@@ -94,6 +110,10 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
     onSuccess();
   }
 
+  async function onInvalid() {
+    setPaymentError("Please check the highlighted fields above and try again.");
+  }
+
   return (
     <>
       {/* Billing Details */}
@@ -105,7 +125,7 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
           Billing Information
         </h2>
 
-        <form id="checkout-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form id="checkout-form" onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
             <div className="flex flex-col gap-2">
               <Label htmlFor="fullName">Full name</Label>
