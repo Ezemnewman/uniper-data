@@ -17,7 +17,7 @@ export function Footer() {
             <a href="#" aria-label="Website" className="text-outline-variant hover:text-primary-fixed transition-colors">
               <Globe size={20} />
             </a>
-            <a href="mailto:hello@uniperdata.com" aria-label="Email" className="text-outline-variant hover:text-primary-fixed transition-colors">
+            <a href="mailto:support@bisdoc.info" aria-label="Email" className="text-outline-variant hover:text-primary-fixed transition-colors">
               <Mail size={20} />
             </a>
           </div>

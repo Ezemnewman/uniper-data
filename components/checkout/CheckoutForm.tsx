@@ -25,9 +25,10 @@ interface CheckoutFormProps {
   plan: Plan;
   onSubmittingChange: (isSubmitting: boolean) => void;
   onSuccess: () => void;
+  onGatewayUnavailable: () => void;
 }
 
-export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFormProps) {
+export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUnavailable }: CheckoutFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -85,7 +86,10 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
         const data = await response.json();
 
         if (!response.ok || !data.authorization_url) {
-          setPaymentError(data.error ?? "Could not start the Paystack checkout. Please try again.");
+          // A missing/invalid key, or Paystack itself being unreachable, is
+          // a gateway-level problem, not something the shopper can fix by
+          // re-entering a field — show the dedicated fallback screen.
+          onGatewayUnavailable();
           return;
         }
 
@@ -94,7 +98,7 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess }: CheckoutFo
         // /checkout/callback, which verifies the transaction server-side.
         window.location.href = data.authorization_url;
       } catch {
-        setPaymentError("Could not reach the payment server. Please try again.");
+        onGatewayUnavailable();
       }
       return;
     }
