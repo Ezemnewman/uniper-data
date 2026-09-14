@@ -26,7 +26,7 @@ export function CheckoutClient({ plan }: { plan: Plan }) {
         <div className="max-w-xl mx-auto text-center bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm">
           Please reach out to our support team to complete your payment using the email:
           <br />
-            <p className="text-body-md text-on-surface-variant mb-lg"> <a href="/"> <h2>support@yourcompany.com</h2></a></p> .
+            <p className="text-body-md text-on-surface-variant mb-lg"> <a href="/"> <h2>support@bisdoc.info</h2></a></p> .
         </div>
         <Button asChild>
           <a href="/">Back to home</a>
