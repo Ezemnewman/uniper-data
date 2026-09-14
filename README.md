@@ -52,45 +52,40 @@ query param — so the amount charged can't be tampered with via the URL.
 
 ## Payments
 
-**Paystack is live and wired up.** Selecting the Paystack tab and clicking Pay Now:
+**No payment gateway is currently connected.** All three tabs behave as follows:
 
-1. Calls `app/api/paystack/init/route.ts` (server-side) which initializes a transaction with
-   your `PAYSTACK_SECRET_KEY`.
-2. Redirects the full page to Paystack's hosted checkout (`authorization_url`).
-3. After payment, Paystack sends the browser back to `/checkout/callback`, which verifies the
-   transaction server-side (`transaction/verify`) and shows a success or failure screen.
+- **Card** and **Bank Transfer** are simulated (a `setTimeout` in `CheckoutForm.tsx`'s
+  `onSubmit`) — clicking Pay Now shows the success screen without moving real money.
+- **Paystack** shows `components/checkout/PaymentUnavailable.tsx` — a "temporarily unavailable"
+  screen that directs the shopper to email support to complete payment manually. It does not
+  call any payment API.
 
-To enable it:
+### Reconnecting Paystack
 
-```bash
-cp .env.example .env.local
-```
+A previous version of this project had a real Paystack integration (server-side transaction
+init + redirect + verification callback). To bring it back:
 
-Add your **test** secret key to `.env.local`:
+1. Create `app/api/paystack/init/route.ts` — a route handler that calls Paystack's
+   `transaction/initialize` endpoint using a `PAYSTACK_SECRET_KEY`, and returns the
+   `authorization_url` it responds with.
+2. Create `app/checkout/callback/page.tsx` — a server component that reads the `reference` query
+   param Paystack redirects back with, calls `transaction/verify`, and shows success/failure.
+3. In `CheckoutForm.tsx`, replace the `paymentMethod === "paystack"` block (currently just calls
+   `onGatewayUnavailable()`) with a `fetch("/api/paystack/init")` call, and
+   `window.location.href = data.authorization_url` on success.
+4. Since the site displays USD but Paystack typically settles in NGN, you'll also need a
+   USD→NGN conversion before charging — use a live FX rate rather than a hardcoded one.
+5. `cp .env.example .env.local` and add your test `PAYSTACK_SECRET_KEY` (free from your Paystack
+   dashboard under **Settings → API Keys & Webhooks**, no business verification needed for test
+   mode).
 
-```
-PAYSTACK_SECRET_KEY=sk_test_xxxxxxxxxxxx
-```
-
-Get a free test key from your Paystack dashboard under **Settings → API Keys & Webhooks** — no
-business verification needed for test mode. Test payments use Paystack's published test cards.
-
-**Currency conversion:** the site displays prices in USD, but this Paystack account settles in
-NGN, so `app/api/paystack/init/route.ts` converts the USD total to NGN before charging, using
-the shared rate in `lib/currency.ts` (`USD_TO_NGN_RATE`). That rate is a **static, approximate**
-mid-market rate — it will drift as the real exchange rate moves. For anything beyond testing,
-replace it with a live rate pulled from an FX API at request time rather than a hardcoded
-number. The Paystack tab shows the shopper the actual NGN amount before they're redirected, so
-there's no surprise at checkout.
-
-**Card and Bank Transfer are still simulated** (a `setTimeout` in `CheckoutForm.tsx`'s
-`onSubmit`) — they don't move real money. To wire up Stripe for the Card tab the same way:
+### Wiring up Stripe for Card
 
 1. Create `app/api/stripe/init/route.ts` that creates a `PaymentIntent` using
    `STRIPE_SECRET_KEY`.
-2. In `CheckoutForm.tsx`, add a `paymentMethod === "card"` branch alongside the existing
-   `"paystack"` branch that posts to that route and confirms the intent client-side with
-   `@stripe/stripe-js` + `@stripe/react-stripe-js`, using `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+2. In `CheckoutForm.tsx`, replace the simulated `paymentMethod === "card"` flow with a call to
+   that route, then confirm the intent client-side with `@stripe/stripe-js` +
+   `@stripe/react-stripe-js`, using `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 3. Call `onSuccess()` once Stripe confirms payment.
 
 ## Accessibility & responsiveness notes

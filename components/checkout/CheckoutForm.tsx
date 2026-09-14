@@ -11,9 +11,6 @@ import { FormError } from "@/components/ui/form-error";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PaymentMethodTabs } from "@/components/checkout/PaymentMethodTabs";
 import { billingSchema, cardSchema, type BillingSchema, type CardSchema } from "@/lib/validations/checkout";
-import { TAX_RATE } from "@/lib/plans";
-import { convertUsdToNgn, formatNgn } from "@/lib/currency";
-import { formatCurrency } from "@/lib/utils";
 import type { PaymentMethod, Plan } from "@/types";
 
 const COUNTRIES = ["United States", "United Kingdom", "Canada", "Nigeria", "Germany"];
@@ -31,9 +28,6 @@ interface CheckoutFormProps {
 export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUnavailable }: CheckoutFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [paymentError, setPaymentError] = useState<string | null>(null);
-
-  const total = plan.price * (1 + TAX_RATE);
-  const totalNgn = convertUsdToNgn(total);
 
   const {
     register,
@@ -69,37 +63,13 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUna
     setPaymentError(null);
 
     if (paymentMethod === "paystack") {
-      try {
-        const response = await fetch("/api/paystack/init", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: values.email,
-            // The server converts this USD total to NGN kobo — see
-            // app/api/paystack/init/route.ts for the exchange rate used.
-            amountUsd: total,
-            planId: plan.id,
-            planName: plan.name,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.authorization_url) {
-          // A missing/invalid key, or Paystack itself being unreachable, is
-          // a gateway-level problem, not something the shopper can fix by
-          // re-entering a field — show the dedicated fallback screen.
-          onGatewayUnavailable();
-          return;
-        }
-
-        // Full-page redirect to Paystack's hosted checkout — the browser
-        // leaves this app until Paystack sends the user back to
-        // /checkout/callback, which verifies the transaction server-side.
-        window.location.href = data.authorization_url;
-      } catch {
-        onGatewayUnavailable();
-      }
+      // Paystack is not currently connected — show the "temporarily
+      // unavailable" screen instead of attempting a real payment. Once a
+      // live PAYSTACK_SECRET_KEY is configured again, replace this block
+      // with a fetch to /api/paystack/init and redirect to the returned
+      // authorization_url.
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      onGatewayUnavailable();
       return;
     }
 
@@ -314,10 +284,8 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUna
 
         {paymentMethod === "paystack" && (
           <p className="text-body-sm text-on-surface-variant">
-            You&apos;ll be redirected to Paystack&apos;s secure checkout to complete this payment
-            after clicking Pay Now. Paystack charges in Naira, so you&apos;ll be billed{" "}
-            <span className="font-semibold text-on-surface">{formatNgn(totalNgn)}</span>{" "}
-            (today&apos;s approximate rate for {formatCurrency(total)}).
+            Paystack checkout is temporarily unavailable. Click Pay Now for details on completing
+            your payment another way.
           </p>
         )}
 
