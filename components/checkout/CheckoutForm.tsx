@@ -62,20 +62,6 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUna
   async function onSubmit(values: FormValues) {
     setPaymentError(null);
 
-    if (paymentMethod === "paystack") {
-      // Paystack is not currently connected — show the "temporarily
-      // unavailable" screen instead of attempting a real payment. Once a
-      // live PAYSTACK_SECRET_KEY is configured again, replace this block
-      // with a fetch to /api/paystack/init and redirect to the returned
-      // authorization_url.
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      onGatewayUnavailable();
-      return;
-    }
-
-    // Card and bank transfer are not yet wired to a real gateway — see
-    // README.md for how to connect Stripe here the same way Paystack is
-    // connected above.
     if (paymentMethod === "card") {
       const cardResult = cardSchema.safeParse(values);
       if (!cardResult.success) {
@@ -83,6 +69,19 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUna
       }
     }
 
+    if (paymentMethod === "paystack" || paymentMethod === "card") {
+      // Neither gateway is currently connected — show the "temporarily
+      // unavailable" screen instead of attempting a real payment. Once a
+      // live payment key is configured again, replace this block with a
+      // real API call for the corresponding method.
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      onGatewayUnavailable();
+      return;
+    }
+
+    // Bank transfer is not yet wired to a real gateway — see README.md for
+    // how to connect a provider here the same way Card/Paystack are noted
+    // above.
     await new Promise((resolve) => setTimeout(resolve, 1400));
     console.log("Checkout submission:", { ...values, paymentMethod });
     onSuccess();
