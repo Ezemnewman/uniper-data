@@ -25,7 +25,7 @@ interface CheckoutFormProps {
   onGatewayUnavailable: () => void;
 }
 
-export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUnavailable }: CheckoutFormProps) {
+export function CheckoutForm({ plan, onSubmittingChange, onGatewayUnavailable }: CheckoutFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -69,22 +69,13 @@ export function CheckoutForm({ plan, onSubmittingChange, onSuccess, onGatewayUna
       }
     }
 
-    if (paymentMethod === "paystack" || paymentMethod === "card") {
-      // Neither gateway is currently connected — show the "temporarily
-      // unavailable" screen instead of attempting a real payment. Once a
-      // live payment key is configured again, replace this block with a
-      // real API call for the corresponding method.
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      onGatewayUnavailable();
-      return;
-    }
-
-    // Bank transfer is not yet wired to a real gateway — see README.md for
-    // how to connect a provider here the same way Card/Paystack are noted
-    // above.
-    await new Promise((resolve) => setTimeout(resolve, 1400));
-    console.log("Checkout submission:", { ...values, paymentMethod });
-    onSuccess();
+    // No payment gateway is currently connected for any method — show the
+    // "temporarily unavailable" screen instead of attempting a real
+    // payment. Once a live payment key is configured for a given method,
+    // replace this block with a real API call for that method and call
+    // onSuccess() once it confirms.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    onGatewayUnavailable();
   }
 
   async function onInvalid() {
